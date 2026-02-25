@@ -1,69 +1,82 @@
 const express = require("express");
 const mongoose = require("mongoose");
-const authRoutes = require("./routes/authRoutes");
-const taskRoutes = require("./routes/taskRoutes");
-const notificationRoutes = require("./routes/notificationRoutes");
 const cors = require("cors");
 require("dotenv").config();
 
+/* -------------------- APP INIT -------------------- */
+
 const app = express();
 
-/* -------------------- FINAL WORKING CORS -------------------- */
+/* -------------------- CORS CONFIG (VERY IMPORTANT) -------------------- */
 
-const allowedOrigins = [
-  "http://localhost:5173",
-  "http://localhost:4173",
-  "https://smart-studies-planner.netlify.app"
-];
+const corsOptions = {
+  origin: [
+    "http://localhost:5173",
+    "http://localhost:4173",
+    "https://smart-studies-planner.netlify.app",
+  ],
+  credentials: true,
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
+};
 
-app.use((req, res, next) => {
-  const origin = req.headers.origin;
+app.use(cors(corsOptions));
+app.options("*", cors(corsOptions)); // handles browser preflight
 
-  if (allowedOrigins.includes(origin)) {
-    res.header("Access-Control-Allow-Origin", origin);
-  }
+/* -------------------- MIDDLEWARE -------------------- */
 
-  res.header("Access-Control-Allow-Credentials", "true");
-  res.header(
-    "Access-Control-Allow-Headers",
-    "Origin, X-Requested-With, Content-Type, Accept, Authorization"
-  );
-  res.header(
-    "Access-Control-Allow-Methods",
-    "GET, POST, PUT, DELETE, OPTIONS"
-  );
+app.use(express.json()); // parse JSON body
 
-  // ⭐ THIS answers the browser preflight request
-  if (req.method === "OPTIONS") {
-    return res.sendStatus(200);
-  }
+/* -------------------- ROUTES IMPORT -------------------- */
 
-  next();
-});
+const authRoutes = require("./routes/authRoutes");
+const taskRoutes = require("./routes/taskRoutes");
+const notificationRoutes = require("./routes/notificationRoutes");
 
-/* ------------------------------------------------------------ */
-
-app.use(express.json());
-
+/* -------------------- HEALTH CHECK -------------------- */
+// Very useful for Render to keep server alive
 app.get("/", (req, res) => {
-  res.send("Smart Study Planner API Running");
+  res.status(200).json({
+    status: "SUCCESS",
+    message: "Smart Study Planner API Running 🚀",
+  });
 });
 
-/* -------------------- ROUTES -------------------- */
+/* -------------------- API ROUTES -------------------- */
 
 app.use("/api/auth", authRoutes);
 app.use("/api/tasks", taskRoutes);
 app.use("/api/notifications", notificationRoutes);
 
-/* -------------------- DATABASE -------------------- */
+/* -------------------- DATABASE CONNECTION -------------------- */
 
-mongoose.connect(process.env.MONGO_URI)
-.then(() => {
-  console.log("MongoDB Connected");
+mongoose
+  .connect(process.env.MONGO_URI, {
+    useNewUrlParser: true,
+    useUnifiedTopology: true,
+  })
+  .then(() => {
+    console.log("✅ MongoDB Connected");
 
-  const PORT = process.env.PORT || 5000;
-  app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
-})
-.catch(err => console.log(err));
+    const PORT = process.env.PORT || 5000;
 
+    app.listen(PORT, () => {
+      console.log(`🚀 Server running on port ${PORT}`);
+    });
+  })
+  .catch((err) => {
+    console.log("❌ MongoDB connection error:", err.message);
+  });
+
+/* -------------------- CRON JOB -------------------- */
+// loads reminder background job
 require("./cron/reminderJob");
+
+/* -------------------- GLOBAL ERROR HANDLER -------------------- */
+process.on("unhandledRejection", (err) => {
+  console.log("Unhandled Rejection:", err.message);
+});
+
+process.on("uncaughtException", (err) => {
+  console.log("Uncaught Exception:", err.message);
+});

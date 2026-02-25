@@ -9,6 +9,8 @@ const app = express();
 
 /* -------------------- CORS CONFIG (VERY IMPORTANT) -------------------- */
 
+/* -------------------- CORS CONFIG -------------------- */
+
 const corsOptions = {
   origin: [
     "http://localhost:5173",
@@ -21,7 +23,9 @@ const corsOptions = {
 };
 
 app.use(cors(corsOptions));
-app.options("*", cors(corsOptions)); // handles browser preflight
+
+// EXPRESS 5 FIX (IMPORTANT)
+app.options(/.*/, cors(corsOptions));
 
 /* -------------------- MIDDLEWARE -------------------- */
 

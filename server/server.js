@@ -6,34 +6,41 @@ require("dotenv").config();
 const app = express();
 
 /* =========================================================
-   CORS (PRODUCTION SAFE)
+   HARD CORS FIX (handles browser preflight before anything)
    ========================================================= */
 
-const allowedOrigins = [
-  "http://localhost:5173",
-  "http://localhost:4173",
-  "https://smart-studies-planner.netlify.app",
-  "https://smart-studies-planner.netlify.app/", // safety
-];
+const FRONTEND_URL = "https://smart-studies-planner.netlify.app";
 
-const corsOptions = {
-  origin: function (origin, callback) {
-    // allow requests with no origin (mobile apps, postman)
-    if (!origin) return callback(null, true);
+app.use((req, res, next) => {
+  res.setHeader("Access-Control-Allow-Origin", FRONTEND_URL);
+  res.setHeader("Access-Control-Allow-Credentials", "true");
+  res.setHeader(
+    "Access-Control-Allow-Headers",
+    "Origin, X-Requested-With, Content-Type, Accept, Authorization"
+  );
+  res.setHeader(
+    "Access-Control-Allow-Methods",
+    "GET, POST, PUT, DELETE, OPTIONS"
+  );
 
-    if (allowedOrigins.includes(origin)) {
-      return callback(null, true);
-    } else {
-      return callback(new Error("CORS Not Allowed"));
-    }
-  },
-  credentials: true,
-  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization"],
-};
+  // VERY IMPORTANT → handle preflight request
+  if (req.method === "OPTIONS") {
+    return res.status(200).end();
+  }
 
-app.use(cors(corsOptions));
-app.options(/.*/, cors(corsOptions)); // Express 5 preflight fix
+  next();
+});
+
+/* =========================================================
+   NORMAL CORS (for express routing)
+   ========================================================= */
+
+app.use(
+  cors({
+    origin: FRONTEND_URL,
+    credentials: true,
+  })
+);
 
 /* =========================================================
    MIDDLEWARE
@@ -43,7 +50,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 /* =========================================================
-   HEALTH CHECK (VERY IMPORTANT FOR RENDER)
+   HEALTH CHECK ROUTE (Render uses this)
    ========================================================= */
 
 app.get("/", (req, res) => {
@@ -63,25 +70,23 @@ app.use("/api/tasks", taskRoutes);
 app.use("/api/notifications", notificationRoutes);
 
 /* =========================================================
-   DATABASE CONNECTION (MONGOOSE v8 FIX)
+   START SERVER FIRST (IMPORTANT FOR RENDER)
    ========================================================= */
 
 const PORT = process.env.PORT || 5000;
 
-// START SERVER FIRST (IMPORTANT FOR RENDER)
 app.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
 });
 
-// THEN CONNECT DATABASE
+/* =========================================================
+   DATABASE CONNECTION (Mongoose v8 compatible)
+   ========================================================= */
+
 mongoose
   .connect(process.env.MONGO_URI)
-  .then(() => {
-    console.log("✅ MongoDB Connected");
-  })
-  .catch((err) => {
-    console.log("❌ MongoDB connection error:", err.message);
-  });
+  .then(() => console.log("✅ MongoDB Connected"))
+  .catch((err) => console.log("❌ MongoDB Error:", err.message));
 
 /* =========================================================
    CRON JOB
@@ -90,13 +95,13 @@ mongoose
 require("./cron/reminderJob");
 
 /* =========================================================
-   GLOBAL ERROR HANDLERS (PREVENT SERVER CRASH)
+   ERROR SAFETY (prevents crashes)
    ========================================================= */
 
 process.on("unhandledRejection", (err) => {
-  console.error("Unhandled Promise Rejection:", err);
+  console.log("Unhandled Rejection:", err);
 });
 
 process.on("uncaughtException", (err) => {
-  console.error("Uncaught Exception:", err);
+  console.log("Uncaught Exception:", err);
 });

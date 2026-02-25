@@ -8,6 +8,7 @@ require("dotenv").config();
 
 const app = express();
 
+/* -------------------- CORS CONFIG (PRODUCTION SAFE) -------------------- */
 
 const allowedOrigins = [
   "http://localhost:5173",
@@ -15,27 +16,30 @@ const allowedOrigins = [
   "https://smart-studies-planner.netlify.app"
 ];
 
-app.use(cors({
+const corsOptions = {
   origin: function (origin, callback) {
-    // allow requests with no origin (mobile apps, postman, curl)
+
+    // allow mobile apps, postman etc
     if (!origin) return callback(null, true);
 
     if (allowedOrigins.includes(origin)) {
-      return callback(null, true);
+      callback(null, true);
     } else {
-      return callback(new Error("CORS policy: This origin is not allowed"));
+      callback(null, false);
     }
   },
   credentials: true,
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"]
-}));
+};
 
-// VERY IMPORTANT: handle preflight
-app.use((req, res, next) => {
-  res.header("Access-Control-Allow-Credentials", "true");
-  next();
-});
+// MUST be before routes
+app.use(cors(corsOptions));
+
+// THIS IS THE REAL PRE-FLIGHT FIX
+app.options("*", cors(corsOptions));
+
+/* ---------------------------------------------------------------------- */
 
 app.use(express.json());
 
@@ -43,16 +47,21 @@ app.get("/", (req, res) => {
   res.send("Smart Study Planner API Running");
 });
 
-app.use("/api/auth", authRoutes); // AUTH ROUTES
-app.use("/api/tasks", taskRoutes); // TASK ROUTES
-app.use("/api/notifications", notificationRoutes); // NOTIFICATION ROUTES
+/* -------------------- ROUTES -------------------- */
+
+app.use("/api/auth", authRoutes);
+app.use("/api/tasks", taskRoutes);
+app.use("/api/notifications", notificationRoutes);
+
+/* -------------------- DATABASE -------------------- */
 
 mongoose.connect(process.env.MONGO_URI)
 .then(() => {
-    console.log("MongoDB Connected");
-    
-    const PORT = process.env.PORT || 5000;
-    app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+  console.log("MongoDB Connected");
+
+  const PORT = process.env.PORT || 5000;
+  app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
 })
 .catch(err => console.log(err));
+
 require("./cron/reminderJob");

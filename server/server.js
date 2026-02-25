@@ -60,6 +60,15 @@ app.get("/", (req, res) => {
 /* =========================================================
    ROUTES
    ========================================================= */
+/* ================= PRE-FLIGHT (CORS OPTIONS) HANDLER ================= */
+
+app.options("/api/*", (req, res) => {
+  res.header("Access-Control-Allow-Origin", "https://smart-studies-planner.netlify.app");
+  res.header("Access-Control-Allow-Credentials", "true");
+  res.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
+  res.header("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS");
+  return res.sendStatus(200);
+});
 
 const authRoutes = require("./routes/authRoutes");
 const taskRoutes = require("./routes/taskRoutes");

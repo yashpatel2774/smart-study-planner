@@ -8,7 +8,7 @@ require("dotenv").config();
 
 const app = express();
 
-/* -------------------- CORS CONFIG (PRODUCTION SAFE) -------------------- */
+/* -------------------- FINAL WORKING CORS -------------------- */
 
 const allowedOrigins = [
   "http://localhost:5173",
@@ -16,30 +16,32 @@ const allowedOrigins = [
   "https://smart-studies-planner.netlify.app"
 ];
 
-const corsOptions = {
-  origin: function (origin, callback) {
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
 
-    // allow mobile apps, postman etc
-    if (!origin) return callback(null, true);
+  if (allowedOrigins.includes(origin)) {
+    res.header("Access-Control-Allow-Origin", origin);
+  }
 
-    if (allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      callback(null, false);
-    }
-  },
-  credentials: true,
-  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization"]
-};
+  res.header("Access-Control-Allow-Credentials", "true");
+  res.header(
+    "Access-Control-Allow-Headers",
+    "Origin, X-Requested-With, Content-Type, Accept, Authorization"
+  );
+  res.header(
+    "Access-Control-Allow-Methods",
+    "GET, POST, PUT, DELETE, OPTIONS"
+  );
 
-// MUST be before routes
-app.use(cors(corsOptions));
+  // ⭐ THIS answers the browser preflight request
+  if (req.method === "OPTIONS") {
+    return res.sendStatus(200);
+  }
 
-// THIS IS THE REAL PRE-FLIGHT FIX
-app.options("*", cors(corsOptions));
+  next();
+});
 
-/* ---------------------------------------------------------------------- */
+/* ------------------------------------------------------------ */
 
 app.use(express.json());
 
